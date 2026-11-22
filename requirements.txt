@@ -1,0 +1,3 @@
+faster-whisper>=1.0.0
+Markdown>=3.5
+EbookLib>=0.18

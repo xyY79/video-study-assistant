@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# Downloaded media and temporary downloader artifacts
+downloads/
+*.part
+*.ytdl
+*.tmp
+
+# Local logs and generated caches
+*.log
+.pytest_cache/
+.mypy_cache/
