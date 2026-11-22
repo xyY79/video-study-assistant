@@ -5,6 +5,10 @@ description: 把视频课程/讲座/B站博主视频转成可学习的文字材�
 
 # 视频学习助手
 
+> 版本：V1.1
+> 更新日期：2026-11-23
+> 本版重点：有可用 NVIDIA GPU 时优先使用 GPU 加速转写，并在 CUDA 不可用时自动回退到 CPU。
+
 目标：把视频学习内容转成「可通读的完整讲稿 + 综合报告」，交付物统一为 Markdown 文件，便于用户先通读讲稿再看总结。
 
 ## 两种入口
@@ -14,7 +18,7 @@ description: 把视频课程/讲座/B站博主视频转成可学习的文字材�
 用户给出本机某一路径下的视频（或视频文件夹）时：
 
 1. 列出路径下所有视频文件，确认数量与集数顺序。
-2. 用 `scripts/transcribe.py` 逐个转写成带时间戳的 UTF-8 txt（默认模型 `small` = Systran/faster-whisper-small，本机已缓存；CPU int8 即可，无需联网）。
+2. 用 `scripts/transcribe.py` 逐个转写成带时间戳的 UTF-8 txt（默认模型 `small` = Systran/faster-whisper-small；`--device auto` 会优先尝试 CUDA + float16，CUDA 不可用时回退 CPU int8；也可用 `--device cpu` 或 `--device cuda` 明确指定）。
 3. 逐集清洗成「讲稿-第N集-标题.md」：保留完整内容，去掉"嗯/啊/对吧/对不对/就是说"等口水话与碎句，连成通顺、口语化但不死板的段落。用户会先通读讲稿。
 4. 生成「综合报告-<范围>.md」：归纳每集核心观点、论证结构、金句与对用户学习/研究的可借鉴点。
 5. 保留：转写 txt（原始）+ 讲稿 md + 综合报告 md。**不删除用户本地的原始视频**。
@@ -54,14 +58,25 @@ description: 把视频课程/讲座/B站博主视频转成可学习的文字材�
 - `yt-dlp`：建议安装到 PATH；也可以在执行时传入其完整路径。
 - `ffmpeg`：建议安装到 PATH；yt-dlp 合并音视频时可用 `--ffmpeg-location` 指定安装目录。
 - `faster-whisper`：由 Python 依赖提供。模型会按 faster-whisper/Hugging Face 的默认机制下载或复用本地缓存。
-- 转写脚本：本技能的 `scripts/transcribe.py`（`python scripts/transcribe.py <视频或文件夹> [--out ...]`），默认中文、VAD、时间戳 `[hh:mm:ss.mmm]`。
+- 转写脚本：本技能的 `scripts/transcribe.py`（`python scripts/transcribe.py <视频或文件夹> [--out ...]`），默认中文、VAD、时间戳 `[hh:mm:ss.mmm]`；默认自动优先 GPU，失败回退 CPU。
+- GPU：若有兼容的 NVIDIA 驱动/CUDA 运行环境，优先使用 CUDA + float16；脚本会在 Windows 上尝试注册 pip/系统 CUDA DLL 路径。
 - 可选本地大模型（Ollama）：例如 `qwen3:8b-q4_K_M`，可做补充问答/精读，非必须。
 - 下载目录：由用户指定，建议放在独立的主题目录下，避免与其他下载任务混在一起。
+
+## V1.1 GPU 转写策略
+
+- 默认运行模式是 `--device auto`：检测到可用 NVIDIA GPU 时优先使用 CUDA；CUDA 初始化失败、驱动或运行库不可用时自动回退到 CPU `int8`，不能因为 GPU 环境问题阻塞任务。
+- GPU 模式默认使用 `float16`，以提高速度并控制显存占用；用户可用 `--compute-type` 调整计算类型。
+- 充分利用用户明确空闲的 GPU 资源，但不强制追求 100% GPU 利用率。Whisper 属于逐段/逐 token 解码，GPU 利用率会受音频解码、VAD、磁盘 I/O 和模型批处理方式影响，利用率不是固定目标。
+- 多集任务默认逐个文件顺序转写，不同时启动多个转写进程；这样可避免显存峰值、磁盘争用和系统交互明显变慢。
+- GPU 转写仍会占用少量 CPU、内存和磁盘 I/O；CPU 主要负责音频读取/解码、VAD、调度和写入文本。用户需要运行 CPU 密集型工作时，可用 `--device cpu` 或降低 CPU 线程数；用户明确希望优先速度且 GPU 空闲时，保持 `--device auto` 即可。
+- 若用户要求必须使用 GPU，可用 `--device cuda --no-gpu-fallback`；若用户要求不使用 GPU，可用 `--device cpu`。
+- 长任务进度更新应说明当前使用的是 CUDA 还是 CPU，以及发生回退时的原因；不要把“GPU 利用率未达 100%”本身当作失败。
 
 ## 约束与注意
 
 - 中文交流，少讲命令细节，直接推进。
 - 长任务（多集下载+转写+写讲稿）耗时以小时计，需持续给用户进度更新。
-- 转写是 CPU 任务，一次跑一个文件即可；多集按顺序后台排队。
+- 转写按单文件顺序处理；默认优先 GPU，GPU 不可用时使用 CPU int8；多集按顺序后台排队。
 - 在线内容总结完删视频、留文字，是本技能默认清理策略；本地视频不删。
 - 系列转 EPUB 前必须先征求用户批准，得到明确同意后才执行；不要把「用户提过想转 EPUB」当成自动授权。
