@@ -33,6 +33,15 @@ class StudyTests(unittest.TestCase):
                 src=root/f"{i}.json"; out=root/f"{i}-chunks.json"; p.write_json(src,data); p.prepare(src,out)
                 self.assertEqual(p.read_json(out)["chunks"][0]["segments"][0]["end_ms"],34)
 
+    def test_markdown_timestamp_variants(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            src=root/"raw.md"; src.write_text("（00:00:01）甲\n(00:00:02.500) 乙\n[00:00:03] 丙",encoding="utf-8")
+            out=root/"chunks.json"; p.prepare(src,out)
+            rows=p.read_json(out)["chunks"][0]["segments"]
+            self.assertEqual([r["text"] for r in rows],["甲","乙","丙"])
+            self.assertEqual([r["start_ms"] for r in rows],[1000,2500,3000])
+
     def test_comments_merge(self):
         hot={"comments":[dict(rpid=1,content="hot",likes=99,location="private")]}
         time={"comments":[dict(rpid=1,content="hot",likes=99),dict(rpid=2,content="new",likes=0),dict(rpid=3,is_reply=True,content="reply")]}

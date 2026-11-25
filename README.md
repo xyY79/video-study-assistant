@@ -1,39 +1,25 @@
-# 视频学习助手 V2.0（候选版）
+# 视频学习助手 V2.1 — Markdown-native
 
-将本地视频、B站视频/合集或历史转录转为高质量忠实精编讲稿、短导读、综合报告与可选 EPUB。重点是学习效率，不是逐字转录。
+将本地视频、音频、B站视频/合集或历史底稿重构为单文件高质量 Markdown 学习讲稿（Obsidian 原生）。默认完整精编，不以 ASR 底稿或简单摘要作为最终交付。
 
-## V2变化
+## V2.1 更新
 
-- 可选接入固定版本的 audio-transcriber 中文ASR（本地 FunASR + 热词 + 说话人），保留原 faster-whisper GPU/CPU fallback 脚本。
-- 使用主 Agent 的独立忠实精编与语义验收工作流；不是自动调用额外付费 LLM API。基于用户需求独立编写规则，不再分发 pinshu-transcript 的受限材料。
-- 使用 bilibili-video-analysis-summary 双排序评论采样并按知识增量、论证、相关性筛选；非全量评论。
-- 新增带片段ID、输入哈希、时间戳的长文本分块，以及覆盖对账脚本。
-- 保留Markdown、系列EPUB批准门槛、本地源保护与在线临时媒体清理规则，清理延迟到质量验收之后。
+- 六层原生 Markdown：YAML、导读、完整文章、表格/Callout/Mermaid、复习辅助、校勘。无 HTML/CSS/JS、图片附件或社区插件依赖。
+- `SOURCE_READY → EDITED → ENHANCED → FORMAT_PASS → SEMANTIC_REVIEWED → COMPLETE`，缺任一必需阶段不得宣布完成；原始材料仅为中间产物，用户默认只收到一个阅读 Markdown。
+- `check_lecture.py` 读取实际最终 Markdown，检测底稿直出、时间戳堆积、缺标点/章节、机械碎行、长段、外部依赖与 HTML。结构检查不是语义验收；需逐块对账及独立复核。
+- 修复历史 Markdown 底稿全角/半角圆括号时间戳；保留 V2 的分块/覆盖审计、可选 FunASR 与热词、原 Whisper GPU/CPU 路径、评论双排序采样与 EPUB。
+- 原创小型示例和回归用例随仓库发布；用户课程原文不公开。
 
 ## 使用
 
-Python 3.10+（原后端）；可选 audio-transcriber 独立 Python 3.12 环境。安装原依赖：
-```powershell
-python -m pip install -r requirements.txt
-```
-B站需要 yt-dlp、ffmpeg。详细配置见 [上游适配](references/integrations.md)。不要直接安装整套上游插件；上游 checkout 需固定版本。默认使用主 SKILL.md 调度。
+先按 [SKILL.md](SKILL.md) 执行。已存在底稿直接精编，不重复转写。上游依赖按 [integrations.md](references/integrations.md) 配置；原后端依赖 `python -m pip install -r requirements.txt`。Python 3.10+，可选上游 ASR 独立 Python 3.12。所有命令从项目根目录运行。
 
 ```powershell
-# 原后端仍可使用
-python scripts/transcribe.py "D:/video/lecture.mp4" --model large-v3 --out "D:/video/raw.txt"
-# 历史稿可跳过ASR
-python scripts/study_pipeline.py prepare "D:/video/raw.txt" "D:/video/chunks.json"
-# Agent完成精编与ledger后检查覆盖
-python scripts/study_pipeline.py audit "D:/video/chunks.json" "D:/video/ledger.json"
+python scripts/study_pipeline.py prepare "D:/video/raw.md" "D:/work/chunks.json"
+# Agent 完成语义编辑、原生排版及 ledger 后
+python scripts/study_pipeline.py audit "D:/work/chunks.json" "D:/work/ledger.json"
+python scripts/check_lecture.py "D:/video/lecture.md" --source "D:/video/raw.md"
 python -m unittest discover -s tests -v
 ```
 
-输出 lecture/讲稿、导读和综合报告，保留原始转写和审计材料；评论按需。完整操作见 [SKILL.md](SKILL.md)。只在用户批准后运行原 md_to_epub.py。
-
-## 验证与限制
-
-本次候选版新增脚本已在离线环境进行3项单元测试：文本分块与覆盖门槛、两类JSON转写格式、双排序合并与低赞保留。尚未在真实 Windows/NVIDIA/FunASR、B站联网场景执行端到端验证；未测项不得称作已通过。评论上游仅附带部分子回复，不提供父评论ID。Agent语义质量仍需真实样例和独立验收，覆盖脚本并非准确性证明。
-
-## 上游及许可证
-
-仅上述三个项目；实际适配为外部固定版本 checkout 和本项目原创规则，不捆绑上游源码。见 [上游适配](references/integrations.md)。原脚本及原 requirements.txt 保持不变。
+原始转录、语义对账是工作材料；最终默认单个 Markdown。上游许可证与固定提交见 integrations.md。评论仅按需并注明样本限制。系列 EPUB 仍需用户明确批准；不保证所有 EPUB 阅读器渲染 Mermaid/Callout，文本解释保留。Windows GPU、联网 B站采集仍需本机验证；格式测试不代表任意新讲座已完成语义审核。

@@ -55,7 +55,7 @@ def prepare(src, output, size=4000):
                 rows.append((r["content"], round(r["from"] * 1000), round(r["to"] * 1000), None))
     else:
         for line in text.splitlines():
-            m = re.match(r"^\[(\d+):(\d{2}):(\d{2})(?:\.(\d{1,3}))?\]\s*(.*)$", line)
+            m = re.match(r"^\s*[\[(（](\d+):(\d{2}):(\d{2})(?:\.(\d{1,3}))?[\])）]\s*(.*)$", line)
             if m:
                 h, minute, sec, ms, body = m.groups()
                 rows.append((body, ((int(h)*60+int(minute))*60+int(sec))*1000+int((ms or "0").ljust(3,"0")), None, None))

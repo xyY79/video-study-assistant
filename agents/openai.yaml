@@ -1,3 +1,3 @@
 interface:
-  display_name: "视频学习助手 V2"
-  short_description: "高质量讲稿精编、评论知识筛选与EPUB"
+  display_name: "视频学习助手 V2.1"
+  short_description: "单文件 Markdown-native 精编讲稿与学习辅助"
