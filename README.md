@@ -1,112 +1,25 @@
-# 视频转文字学习助手
+# 视频学习助手 V2.1 — Markdown-native
 
-当前版本：**V1.1**（2026-11-23）
+将本地视频、音频、B站视频/合集或历史底稿重构为单文件高质量 Markdown 学习讲稿（Obsidian 原生）。默认完整精编，不以 ASR 底稿或简单摘要作为最终交付。
 
-这是一个面向 Codex/ChatGPT Skills 的视频学习整理工具。它把本地课程、讲座或 B 站视频/合集转换成可通读的逐集讲稿，并进一步生成综合学习报告。
+## V2.1 更新
 
-## 能做什么
+- 六层原生 Markdown：YAML、导读、完整文章、表格/Callout/Mermaid、复习辅助、校勘。无 HTML/CSS/JS、图片附件或社区插件依赖。
+- `SOURCE_READY → EDITED → ENHANCED → FORMAT_PASS → SEMANTIC_REVIEWED → COMPLETE`，缺任一必需阶段不得宣布完成；原始材料仅为中间产物，用户默认只收到一个阅读 Markdown。
+- `check_lecture.py` 读取实际最终 Markdown，检测底稿直出、时间戳堆积、缺标点/章节、机械碎行、长段、外部依赖与 HTML。结构检查不是语义验收；需逐块对账及独立复核。
+- 修复历史 Markdown 底稿全角/半角圆括号时间戳；保留 V2 的分块/覆盖审计、可选 FunASR 与热词、原 Whisper GPU/CPU 路径、评论双排序采样与 EPUB。
+- 原创小型示例和回归用例随仓库发布；用户课程原文不公开。
 
-- 本地视频或视频文件夹：语音转写、保留时间戳、整理成逐集 Markdown 讲稿。
-- B 站视频或合集：解析分 P、下载、转写；按需抓取热评和评论区，形成“主讲人观点 + 评论区讨论”的综合报告。
-- 系列完成后：在用户明确批准的前提下，把全集讲稿转换为可导入微信读书的 EPUB3。
+## 使用
 
-本仓库中的 `SKILL.md` 是技能的工作流说明；`scripts/` 提供实际执行转写和 Markdown→EPUB 的 Python 脚本。
-
-## 目录
-
-```text
-.
-├── SKILL.md
-├── agents/
-│   └── openai.yaml
-├── scripts/
-│   ├── transcribe.py
-│   └── md_to_epub.py
-├── requirements.txt
-└── .gitignore
-```
-
-## 安装依赖
-
-建议使用 Python 3.10 或更高版本，并在虚拟环境中安装：
+先按 [SKILL.md](SKILL.md) 执行。已存在底稿直接精编，不重复转写。上游依赖按 [integrations.md](references/integrations.md) 配置；原后端依赖 `python -m pip install -r requirements.txt`。Python 3.10+，可选上游 ASR 独立 Python 3.12。所有命令从项目根目录运行。
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
+python scripts/study_pipeline.py prepare "D:/video/raw.md" "D:/work/chunks.json"
+# Agent 完成语义编辑、原生排版及 ledger 后
+python scripts/study_pipeline.py audit "D:/work/chunks.json" "D:/work/ledger.json"
+python scripts/check_lecture.py "D:/video/lecture.md" --source "D:/video/raw.md"
+python -m unittest discover -s tests -v
 ```
 
-如果要处理 B 站内容，还需要在系统中准备：
-
-- `yt-dlp`
-- `ffmpeg`
-
-首次使用 `faster-whisper` 时，模型可能需要下载；之后可以复用本地模型缓存。
-
-如果本机有兼容的 NVIDIA GPU，V1.1 会优先使用 CUDA + `float16` 转写；CUDA 初始化失败时自动回退到 CPU `int8`。不需要 GPU 时可以显式使用 `--device cpu`。
-
-## 单独运行转写脚本
-
-处理单个视频或音频：
-
-```powershell
-python scripts/transcribe.py "D:\videos\lecture.mp4" --out "D:\videos\lecture.txt"
-```
-
-处理一个文件夹中的视频：
-
-```powershell
-python scripts/transcribe.py "D:\videos\course" --out "D:\videos\course\transcripts"
-```
-
-默认使用中文、`small` 模型，并自动优先尝试 CUDA `float16`；不可用时回退到 CPU `int8`。输出形如下面的带时间戳文本：
-
-```text
-[00:00:12.340] 这里是转写内容。
-```
-
-可以通过 `--model tiny|base|small|medium|large-v3` 选择模型，通过 `--lang` 指定语言。视频较多时建议逐个顺序处理；若回退到 CPU，转写通常会成为长任务。
-
-V1.1 新增设备选项：
-
-```powershell
-# 默认：优先 CUDA，失败回退 CPU
-python scripts/transcribe.py "D:\videos\course" --out "D:\videos\course\transcripts" --device auto
-
-# 强制使用 GPU；CUDA 初始化失败时直接报错
-python scripts/transcribe.py "D:\videos\course" --device cuda --no-gpu-fallback
-
-# 强制使用 CPU int8
-python scripts/transcribe.py "D:\videos\course" --device cpu
-```
-
-GPU 策略是“充分利用明确空闲的 GPU，但不强制追求 100% 利用率”。Whisper 的逐段/逐 token 解码会受到音频解码、VAD、磁盘 I/O 和批处理方式影响；多集任务默认逐个文件顺序处理，避免显存峰值和系统争用。GPU 转写仍会占用少量 CPU、内存和磁盘 I/O。
-
-## Markdown 转 EPUB
-
-准备好按集数合并的全集讲稿 Markdown 后：
-
-```powershell
-python scripts/md_to_epub.py "D:\course\课程-全集讲稿.md"
-```
-
-脚本按一级标题 `# ...` 分章，生成带可点击目录的 EPUB3。只有在整个系列讲稿完成并获得用户明确批准后，才应执行这一步。
-
-## 作为 Codex Skill 使用
-
-将本仓库作为技能目录安装或复制到 Codex 的 skills 目录后，技能会在用户提供以下内容时触发：
-
-- 本地视频文件或视频文件夹，并要求转文字、整理讲稿或总结；
-- B 站视频/合集链接，并要求下载、转写或生成观点报告；
-- 要求把讲稿整理为适合学习、精读或研究的 Markdown 材料。
-
-完整的入口规则、文件命名、清理策略和 EPUB 审批要求见 [`SKILL.md`](SKILL.md)。
-
-## 重要说明
-
-- 本地视频默认不删除。
-- B 站在线内容处理完成后，默认删除本次下载的视频和临时文件，只保留文字交付物及评论区溯源文本。
-- 删除前必须精确核对路径，不能使用宽泛的递归删除。
-- 评论区内容只作为补充材料，不应自动视为事实或替代主讲内容。
-- V1.1 默认优先使用可用 NVIDIA GPU；CUDA 不可用时自动回退 CPU int8。
-- 本项目不包含任何视频、模型权重、下载缓存或用户个人材料。
+原始转录、语义对账是工作材料；最终默认单个 Markdown。上游许可证与固定提交见 integrations.md。评论仅按需并注明样本限制。系列 EPUB 仍需用户明确批准；不保证所有 EPUB 阅读器渲染 Mermaid/Callout，文本解释保留。Windows GPU、联网 B站采集仍需本机验证；格式测试不代表任意新讲座已完成语义审核。
